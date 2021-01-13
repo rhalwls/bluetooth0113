@@ -168,6 +168,7 @@ public class BluetoothChatFragment extends Fragment {
         mOutEditText.setOnEditorActionListener(mWriteListener);
 
         // Initialize the send button with a listener that for click events
+        // 센서 값 8개 받기
         mSendButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
@@ -175,7 +176,8 @@ public class BluetoothChatFragment extends Fragment {
                 if (null != view) {
                     TextView textView = (TextView) view.findViewById(R.id.edit_text_out);
                     String message = textView.getText().toString();
-                    sendMessage(message);
+                    //sendMessage(message);
+                    sendCommand(message);
                 }
             }
         });
@@ -215,6 +217,45 @@ public class BluetoothChatFragment extends Fragment {
         if (message.length() > 0) {
             // Get the message bytes and tell the BluetoothChatService to write
             byte[] send = message.getBytes();
+            mChatService.write(send);
+
+            // Reset out string buffer to zero and clear the edit text field
+            mOutStringBuffer.setLength(0);
+            mOutEditText.setText(mOutStringBuffer);
+        }
+    }
+    private byte parseMode(String message){
+        byte m = 0;//mode를 나타내는 바이트 하나
+        //1 2 4 식으로(일단은 one hot encoding 해서 보내드림..)
+        switch (message){
+            case "RUN":
+                m = (byte) 0x01 ;
+                break;
+            case "Stop":
+                m = (byte)0x02;
+                break;
+            case "VERSION":
+                m = (byte)0x03;
+                break;
+            case "MESURE":
+                m = (byte) 0x04;
+        }
+        return m;
+    }
+
+    private void sendCommand(String message) { //깔창에게
+        byte mode = parseMode(message);
+        // Check that we're actually connected before trying anything
+        if (mChatService.getState() != BluetoothChatService.STATE_CONNECTED) {
+            Toast.makeText(getActivity(), R.string.not_connected, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Check that there's actually something to send
+        if (message.length() > 0) {
+            // Get the message bytes and tell the BluetoothChatService to write
+            byte[] send = new byte[1];
+            send[0] = mode;
             mChatService.write(send);
 
             // Reset out string buffer to zero and clear the edit text field
@@ -275,7 +316,8 @@ public class BluetoothChatFragment extends Fragment {
     /**
      * The Handler that gets information back from the BluetoothChatService
      */
-    private final Handler mHandler = new Handler() {
+
+    private final Handler mHandler = new Handler() { //일단 변경
         @Override
         public void handleMessage(Message msg) {
             FragmentActivity activity = getActivity();
